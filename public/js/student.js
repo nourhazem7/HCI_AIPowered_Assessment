@@ -35,19 +35,26 @@ const graded = () => S.exams.filter((e) => e.status === 'graded');
 
 function statusChip(e) {
   switch (e.status) {
-    case 'upload': return `<span class="chip dashed">${icon('upload', 15)}${esc(t('Needs upload'))}</span>`;
-    case 'checking': return `<span class="chip">${icon('clock', 15)}${esc(t('Teacher checking'))}</span>`;
-    case 'rescan': return `<span class="chip dashed warn">${icon('camera', 15)}${esc(t('Needs a new photo'))}</span>`;
-    case 'graded': return `<span class="chip dark">${icon('check', 15)}${esc(t('Grade ready'))} · ${e.score}%</span>`;
+    case 'upload': return `<span class="chip warn">${icon('upload', 15)}${esc(t('Needs upload'))}</span>`;
+    case 'checking': return `<span class="chip wait">${icon('clock', 15)}${esc(t('Teacher checking'))}</span>`;
+    case 'rescan': return `<span class="chip warn">${icon('camera', 15)}${esc(t('Needs a new photo'))}</span>`;
+    case 'graded': return `<span class="chip good">${icon('check', 15)}${esc(t('Grade ready'))} · ${e.score}%</span>`;
     case 'upcoming': return `<span class="chip">${icon('calendar', 15)}${esc(t('Coming soon'))}</span>`;
     default: return '';
   }
 }
+function tracker(e) {
+  const step = (state, l, ic) => `<span class="step ${state}">${ic ? icon(ic, 14) : ''}${esc(t(l))}</span>`;
+  const arrow = `<span class="track-arrow" aria-hidden="true">${icon('arrowR', 14)}</span>`;
+  const mid = e.status === 'rescan' ? step('cur warn', 'New photo needed', 'camera') : e.status === 'checking' ? step('cur', 'Teacher checking', 'clock') : step('done', 'Teacher checking', 'check');
+  const last = e.status === 'graded' ? step('done', 'Grade ready', 'check') : step('', 'Grade ready');
+  return `<span class="track" role="list" aria-label="${esc(t('Exam status'))}">${step('done', 'Uploaded', 'check')}${arrow}${mid}${arrow}${last}</span>`;
+}
 function examAction(e) {
   switch (e.status) {
-    case 'upload': return `<a class="btn primary" href="#/student/upload/${e.id}">${esc(t('Upload'))} ${icon('upload', 16)}</a>`;
+    case 'upload': return `<a class="btn" href="#/student/upload/${e.id}">${esc(t('Upload'))} ${icon('upload', 16)}</a>`;
     case 'checking': return `<a class="btn ghost" href="#/student/exam/${e.id}">${esc(t('See pages'))}</a>`;
-    case 'rescan': return `<a class="btn primary" href="#/student/exam/${e.id}">${icon('camera', 16)} ${esc(t('Take new photo'))}</a>`;
+    case 'rescan': return `<a class="btn" href="#/student/exam/${e.id}">${icon('camera', 16)} ${esc(t('Take new photo'))}</a>`;
     case 'graded': return `<a class="btn" href="#/student/result/${e.id}">${esc(t('See result'))}</a>`;
     default: return '';
   }
@@ -61,15 +68,14 @@ route('/student/home', 'student', () => {
   const nNew = newResults();
   const pick = S.games.find((g) => g.picked) || S.games[0];
   const now = S.exams.filter((e) => ['checking', 'rescan'].includes(e.status) || (e.status === 'graded' && e.isNew) || e.status === 'upload');
-  const step = (on, cur, l) => `<span class="step ${on ? 'done' : ''} ${cur ? 'cur' : ''}">${esc(t(l))}</span>`;
   const row = (e) => {
-    if (e.status === 'checking') return `<div class="now-row"><div><strong>${esc(examName(e))}</strong></div><div class="track">${step(true, false, 'Sent')}${icon('arrowR', 16)}${step(true, true, 'Teacher checking')}${icon('arrowR', 16)}${step(false, false, 'Grade ready')}</div></div>`;
-    return `<div class="now-row line"><strong>${esc(examName(e))}</strong><span class="grow"></span>${statusChip(e)}${examAction(e).replace('class="btn"', 'class="btn primary"')}</div>`;
+    if (e.status === 'checking' || e.status === 'rescan') return `<div class="now-row"><div class="row between wrap"><strong>${esc(examName(e))}</strong>${e.status === 'rescan' ? examAction(e) : ''}</div>${tracker(e)}</div>`;
+    return `<div class="now-row line"><strong>${esc(examName(e))}</strong><span class="grow"></span>${statusChip(e)}${examAction(e)}</div>`;
   };
   const msgs = S.inbox.filter((n) => n.kind === 'teacher').slice(0, 3);
   return {
     title: 'Home', nav: 'home',
-    html: `<div class="head-row"><div><h1 class="hi">${esc(t('Hi {n}!', { n: st.name }))}</h1><p class="sub">${esc(t('What do you want to do today?'))}</p></div>
+    html: `${introCard('student')}<div class="head-row"><div><h1 class="hi">${esc(t('Hi {n}!', { n: st.name }))}</h1><p class="sub">${esc(t('What do you want to do today?'))}</p></div>
       <a class="card points-card" href="#/student/rewards"><strong>${st.points} ${esc(t('points'))}</strong><span>${toStar ? esc(t('{n} more to Star of the Week!', { n: toStar })) : esc(t('You are the Star of the Week!'))}</span></a></div>
       <div class="tiles">
         <a class="tile main-tile" href="#/student/upload">${icon('upload', 30)}<strong>${esc(t('Upload my exam'))}</strong><span>${esc(t('Take a photo of your paper'))}</span></a>
@@ -78,7 +84,7 @@ route('/student/home', 'student', () => {
         <a class="tile" href="#/student/games">${icon('game', 30)}<strong>${esc(t('Practice games'))}</strong><span>${esc(t('{g} is ready', { g: pick.title }))}</span></a>
       </div>
       <div class="cols-2-1">
-        <section class="card"><h2>${esc(t('My exams right now'))}</h2>${now.length ? now.map(row).join('') : `<p class="muted">${esc(t('Nothing to do right now.'))}</p>`}</section>
+        <section class="card"><h2>${esc(t('My exams right now'))}</h2>${now.length ? now.map(row).join('') : `<p class="muted">${esc(t('Nothing to do right now. How about a game?'))}</p><a class="btn" href="#/student/games">${esc(t('Practice games'))}</a>`}</section>
         <section class="card"><div class="row between"><h2>${esc(t('Teacher messages'))}</h2><a class="link" href="#/student/messages">${esc(t('See all'))}</a></div>
           <ul class="plain-list">${msgs.map((m) => `<li><a href="#${m.action ? m.action.href : '/student/messages'}">${esc(t(m.short || m.html.replace(/<[^>]+>/g, ''), tvars(m.vars)))}</a><span class="muted"> (${esc(t(m.when || 'Today'))})</span></li>`).join('')}</ul></section>
       </div>`,
@@ -93,31 +99,31 @@ route('/student/subjects', 'student', () => {
     const up = ex.filter((e) => e.status === 'upload').length, re = ex.filter((e) => e.status === 'rescan').length;
     const nw = ex.filter((e) => e.status === 'graded' && e.isNew).length, chk = ex.filter((e) => e.status === 'checking').length;
     const nxt = ex.find((e) => e.status === 'upcoming');
-    const badge = re ? `<span class="chip dashed warn">${icon('camera', 15)}${esc(t('New photo needed'))}</span>`
-      : up ? `<span class="chip dashed">${icon('upload', 15)}${esc(t('{n} to upload', { n: up }))}</span>`
-        : nw ? `<span class="chip dark">${esc(t('{n} new grade', { n: nw }))}</span>`
-          : chk ? `<span class="chip">${icon('clock', 15)}${esc(t('Teacher checking'))}</span>`
+    const badge = re ? `<span class="chip warn">${icon('camera', 15)}${esc(t('New photo needed'))}</span>`
+      : up ? `<span class="chip warn">${icon('upload', 15)}${esc(t('{n} to upload', { n: up }))}</span>`
+        : nw ? `<span class="chip good">${esc(t('{n} new grade', { n: nw }))}</span>`
+          : chk ? `<span class="chip wait">${icon('clock', 15)}${esc(t('Teacher checking'))}</span>`
             : nxt ? `<span class="chip">${icon('calendar', 15)}${esc(t('Exam'))} ${esc(nxt.date.split(' ')[0])}</span>` : '';
     return `<a class="card subj-card" href="#/student/subjects/${s.id}"><div class="row between top-start"><div class="row gap">${subjIcon(s.id, 22)}<div><h2>${esc(t(s.name))}</h2><span class="muted">${esc(s.teacher)}</span></div></div>${badge}</div>
       <div class="row gap center">${bar(last ? last.score : 0)}<strong>${last ? last.score + '%' : '–'}</strong></div></a>`;
   };
   return {
     title: 'My Subjects', nav: 'subjects',
-    html: `<h1 class="page">${esc(t('My Subjects'))}</h1><div class="grid-2">${S.subjects.map(card).join('')}</div><p class="muted">${esc(t('Tap a subject to see its exams and grades.'))}</p>`,
+    html: `${pageHead(t('My Subjects'), { crumbs: [['/student/home', t('Home')], [null, t('My Subjects')]], desc: t('Tap a subject to see its exams and grades.') })}<div class="grid-2">${S.subjects.map(card).join('')}</div>`,
   };
 });
 
 route('/student/subjects/:id', 'student', ({ id }) => {
   const s = subj(id);
-  const ex = S.exams.filter((e) => e.subject === id).sort((a, b) => (a.status === 'upcoming') - (b.status === 'upcoming') || dnum(b.written || b.date) - dnum(a.written || a.date));
-  const meta = (e) => e.status === 'upcoming' ? `${t('Upcoming')} · ${e.date.replace(/^\w+ /, '')}` : `${e.pages} ${t('pages')} · ${e.status === 'upload' ? t('written') + ' ' + e.written : e.sent && e.status !== 'graded' ? t('sent') + ' ' + e.sent : e.written}`;
+  const ex = S.exams.filter((e) => e.subject === id).sort((a, b) => (a.status === 'upcoming') - (b.status === 'upcoming') || (a.status === 'upcoming' ? dnum(a.date) - dnum(b.date) : dnum(b.written || b.date) - dnum(a.written || a.date)));
+  const meta = (e) => e.status === 'upcoming' ? `${t('Upcoming')} · ${e.date.replace(/^\w+ /, '')}` : `${e.pages} ${t('pages')} · ${e.status === 'upload' ? t('written') + ' ' + e.written : e.sent && e.status !== 'graded' ? t('uploaded') + ' ' + e.sent : e.written}`;
   return {
     title: s.name, nav: 'subjects',
     html: `${backBar('/student/subjects', [['/student/home', t('Home')], ['/student/subjects', t('My Subjects')], [null, t(s.name)]])}
       <div class="pills">${S.subjects.map((x) => `<a class="pill" href="#/student/subjects/${x.id}" aria-pressed="${x.id === id}">${esc(t(x.name))}</a>`).join('')}</div>
       <div class="row gap center title-row">${subjIcon(id, 24)}<h1 class="page inline">${esc(t(s.name))}</h1><span class="muted">${esc(s.teacher)}</span></div>
       <div class="table-wrap"><table class="table"><thead><tr><th>${esc(t('Exam'))}</th><th>${esc(t('Status'))}</th><th></th></tr></thead><tbody>
-      ${ex.map((e) => `<tr><td><strong>${esc(t(e.title))}</strong><div class="muted small">${esc(meta(e))}</div></td><td>${statusChip(e)}</td><td class="right">${examAction(e)}</td></tr>`).join('')}
+      ${ex.map((e) => `<tr><td><strong>${esc(t(e.title))}</strong><div class="muted small">${esc(meta(e))}</div></td><td>${['checking', 'rescan'].includes(e.status) ? tracker(e) : statusChip(e)}</td><td class="right">${examAction(e)}</td></tr>`).join('')}
       </tbody></table></div>`,
   };
 });
@@ -131,7 +137,7 @@ route('/student/exam/:id', 'student', ({ id }) => {
   return {
     title: e.title, nav: 'subjects',
     html: `${backBar('/student/subjects/' + e.subject, [['/student/home', t('Home')], ['/student/subjects', t('My Subjects')], ['/student/subjects/' + e.subject, t(subj(e.subject).name)], [null, t(e.title)]])}
-      <div class="row gap center title-row"><h1 class="page inline">${esc(t(e.title))}</h1>${statusChip(e)}</div>
+      <div class="row gap center wrap title-row"><h1 class="page inline">${esc(t(e.title))}</h1>${['checking', 'rescan', 'graded'].includes(e.status) ? tracker(e) : statusChip(e)}</div>
       ${rescan ? `<section class="card note-card">${initials('MA')}<p><strong>${esc(subj(e.subject).teacher)} ${esc(t('says:'))}</strong> “${esc(noteText(e.note))}”</p></section>` : ''}
       ${e.status === 'checking' ? `<p class="muted">${esc(t('You can still change pages until your teacher starts checking.'))}</p>` : ''}
       <div class="pages-row">
@@ -146,7 +152,7 @@ route('/student/exam/:id', 'student', ({ id }) => {
         e.status = 'checking'; e.sent = '10 Oct'; delete e.note;
         sendToTeacher(e, e.rescanPage);
         S.inbox.forEach((n) => { if (n.id === 'rescan-' + e.id) n.unread = false; });
-        save(); toast(esc(t('New photo sent to your teacher. Thank you!'))); beep(); refresh();
+        save(); toast(esc(t('New photo uploaded to {tc}. Thank you!', { tc: subj(e.subject).teacher }))); beep(); refresh();
       } }));
     },
   };
@@ -154,7 +160,7 @@ route('/student/exam/:id', 'student', ({ id }) => {
 
 /* ---------- Upload flow ---------- */
 let UP = null;
-function upReset(examId) { UP = { step: 1, examId: examId || null, filter: 'all', pages: [], checked: false, sent: false, shots: 0 }; }
+function upReset(examId) { UP = { step: 1, examId: examId || null, filter: 'all', pages: [], checked: false, sent: false, shots: 0, countOk: false }; }
 route('/student/upload', 'student', () => { if (!UP) upReset(); return uploadView(); });
 route('/student/upload/:exam', 'student', ({ exam: id }) => { if (!UP || UP.examId !== id || (UP.sent && UP.urlExam !== id)) { upReset(id); UP.urlExam = id; if (exam(id) && exam(id).status === 'upload') UP.step = 2; } return uploadView(); });
 window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#/student/upload')) UP = null; });
@@ -163,26 +169,26 @@ function uploadView() {
   const e = UP.examId && exam(UP.examId);
   const stepper = () => {
     const s = (n, l) => `<li class="${UP.step === n ? 'cur' : UP.step > n ? 'done' : ''}"><span class="num">${UP.step > n ? icon('check', 14) : n}</span>${esc(t(l))}</li>`;
-    return `<ol class="steps">${s(1, 'Choose exam')}<li class="ln"></li>${s(2, 'Add pages')}<li class="ln"></li>${s(3, 'Check & send')}</ol>`;
+    return `<ol class="steps">${s(1, 'Choose exam')}<li class="ln"></li>${s(2, 'Add pages')}<li class="ln"></li>${s(3, 'Check & upload')}</ol>`;
   };
   const head = `<div class="flow-head"><button type="button" class="btn ghost" data-cancel>${icon('x', 16)} ${esc(t('Cancel'))}</button><h1>${esc(t('Upload my exam'))}</h1><span></span></div>`;
   let body = '';
   if (UP.sent) {
-    body = `<section class="card sent-card"><div class="big-check">${icon('check', 40)}</div><h2>${esc(t('Sent! Well done'))}</h2>
+    body = `<section class="card sent-card"><div class="big-check">${icon('check', 40)}</div><h2>${esc(t('Uploaded! Well done'))}</h2>
       <p class="muted">${esc(t('Your {x} is with {tc}.', { x: t(subj(e.subject).name) + ' ' + t(e.title), tc: subj(e.subject).teacher }))}</p>
       <div class="next-box"><strong>${esc(t('What happens next?'))}</strong><ol><li>${esc(t('{tc} checks your answers', { tc: subj(e.subject).teacher }))}</li><li>${esc(t('She confirms your grade'))}</li><li>${esc(t('You get a message'))}</li></ol></div>
       <p class="muted small">${esc(t('You can still change pages until your teacher starts checking.'))}</p>
-      <span class="chip">${icon('star', 15)} ${esc(t('+5 points for sending on time'))}</span>
+      <span class="chip">${icon('star', 15)} ${esc(t('+5 points for uploading on time'))}</span>
       <div class="row gap two"><a class="btn lg" href="#/student/exam/${e.id}">${esc(t('See my pages'))}</a><a class="btn primary lg" href="#/student/home">${esc(t('Go home'))}</a></div></section>`;
-    return { title: 'Upload my exam', layout: 'focus', html: `<div class="flow">${body}</div>` };
+    return { title: 'Upload my exam', layout: 'focus', noBack: true, html: `<div class="flow">${body}</div>` };
   }
   if (UP.step === 1) {
     const list = S.exams.filter((x) => ['upload', 'checking'].includes(x.status) && (UP.filter === 'all' || x.subject === UP.filter));
-    body = `<div class="row between wrap"><h2>${esc(t('Which exam are you sending?'))}</h2>${chips(SUBJECT_FILTER(), UP.filter)}</div>
+    body = `<div class="row between wrap"><h2>${esc(t('Which exam are you uploading?'))}</h2>${chips(SUBJECT_FILTER(), UP.filter)}</div>
       <div class="radio-list" role="radiogroup">${list.map((x) => {
         const sent = x.status !== 'upload';
-        return `<label class="radio-card ${UP.examId === x.id ? 'sel' : ''} ${sent ? 'off' : ''}"><input type="radio" name="ex" value="${x.id}" ${UP.examId === x.id ? 'checked' : ''} ${sent ? 'disabled' : ''}>${subjIcon(x.subject)}<span class="grow"><strong>${esc(examName(x))}</strong><span class="muted small">${sent ? esc(t('Already sent')) : `${esc(t('Written'))} ${esc(x.written)} · ${x.pages} ${esc(t('pages'))} · ${esc(subj(x.subject).teacher)}`}</span></span>${sent ? '' : `<span class="chip dashed">${esc(t('Send by {d}', { d: t(x.sendBy) }))}</span>`}</label>`;
-      }).join('') || `<p class="muted">${esc(t('No exams to send in this subject.'))}</p>`}</div>
+        return `<label class="radio-card ${UP.examId === x.id ? 'sel' : ''} ${sent ? 'off' : ''}"><input type="radio" name="ex" value="${x.id}" ${UP.examId === x.id ? 'checked' : ''} ${sent ? 'disabled' : ''}>${subjIcon(x.subject)}<span class="grow"><strong>${esc(examName(x))}</strong><span class="muted small">${sent ? esc(t('Already uploaded')) : `${esc(t('Written'))} ${esc(x.written)} · ${x.pages} ${esc(t('pages'))} · ${esc(subj(x.subject).teacher)}`}</span></span>${sent ? '' : `<span class="chip">${icon('calendar', 14)}${esc(t('Upload by {d}', { d: t(x.sendBy) }))}</span>`}</label>`;
+      }).join('') || `<p class="muted">${esc(t('No exams to upload in this subject.'))}</p>`}</div>
       <p class="row gap center help-line">${icon('help', 18)} ${esc(t('Can’t find your exam?'))} <button type="button" class="btn sm" data-buddy-ask="How do I upload?">${esc(t('Ask Buddy'))}</button> ${esc(t('or tell your teacher.'))}</p>
       <div class="flow-foot"><span></span><button type="button" class="btn primary lg" data-next ${UP.examId ? '' : 'disabled'}>${esc(t('Next: Add pages'))} ${icon('arrowR', 18)}</button></div>`;
   } else if (UP.step === 2) {
@@ -204,11 +210,16 @@ function uploadView() {
       </div>
       <div class="flow-foot"><button type="button" class="btn lg" data-back>${icon('arrowL', 18)} ${esc(t('Back'))}</button><span class="row gap center">${!n ? `<span class="muted small">${esc(t('Add at least one page to continue'))}</span>` : ''}<button type="button" class="btn primary lg" data-next ${n ? '' : 'disabled'}>${esc(t('Next: Check pages'))} ${icon('arrowR', 18)}</button></span></div>`;
   } else {
-    body = `<section class="card check-card"><p class="muted small">${icon('check', 14)} ${esc(t('Exam'))} — ${icon('check', 14)} ${esc(t('Pages'))} — 3 ${esc(t('Check & send'))}</p><h2>${esc(t('Is everything here?'))}</h2>
+    // 3.5 the button stays disabled until everything is fine, and says what is missing
+    const blurryAt = UP.pages.findIndex((p) => p.blurry);
+    const why = blurryAt > -1 ? t('Page {n} is blurry: take it again first', { n: blurryAt + 1 })
+      : UP.pages.length < e.pages && !UP.countOk ? t('Add page {n} first', { n: UP.pages.length + 1 })
+        : !UP.checked ? t('Tick the box first') : '';
+    body = `<section class="card check-card"><h2>${esc(t('Is everything here?'))}</h2>
       <div class="thumbs">${UP.pages.map((p, i) => `<figure>${pageThumb(i * 2 + 1, { src: p.src })}<figcaption>${esc(t('Page'))} ${i + 1}</figcaption></figure>`).join('')}</div>
       <dl class="summary"><div><dt>${esc(t('Subject'))}:</dt><dd>${esc(t(subj(e.subject).name))}</dd></div><div><dt>${esc(t('Exam'))}:</dt><dd>${esc(t(e.title))}</dd></div><div><dt>${esc(t('Pages'))}:</dt><dd>${UP.pages.length} ${esc(t('of'))} ${e.pages} ${UP.pages.length === e.pages ? icon('check', 14) : icon('warn', 14)}</dd></div></dl>
       <label class="check big"><input type="checkbox" data-ok ${UP.checked ? 'checked' : ''}> ${esc(t('I checked that all my pages are clear and in order'))}</label>
-      <div class="row gap two"><button type="button" class="btn lg" data-back>${esc(t('Fix pages'))}</button><button type="button" class="btn primary lg" data-send ${UP.checked ? '' : 'disabled'}>${esc(t('Send to teacher'))} ${icon('arrowR', 18)}</button></div></section>`;
+      <div class="row gap two"><button type="button" class="btn lg" data-back>${esc(t('Fix pages'))}</button><button type="button" class="btn primary lg" data-send ${why ? 'disabled' : ''}>${why ? icon('warn', 18) + ' ' + esc(why) : esc(t('Upload to teacher')) + ' ' + icon('arrowR', 18)}</button></div></section>`;
   }
   return {
     title: 'Upload my exam', layout: 'focus',
@@ -217,8 +228,9 @@ function uploadView() {
       const on = (sel, fn) => $$(sel, el).forEach((b) => b.addEventListener('click', fn));
       on('[data-cancel]', () => {
         if (!UP.pages.length) { upReset(); return go('/student/home'); }
-        modal({ title: esc(t('Stop uploading?')), body: `<p>${esc(t('The pages you added will not be sent.'))}</p>`,
-          actions: [{ label: esc(t('Keep going')) }, { label: esc(t('Yes, cancel')), primary: true, onClick: () => { upReset(); go('/student/home'); } }] });
+        const k = UP.pages.length;
+        modal({ title: esc(t(k === 1 ? 'Discard 1 page?' : 'Discard {n} pages?', { n: k })), body: `<p>${esc(t('They will not be uploaded.'))}</p>`,
+          actions: [{ label: esc(t('Keep')) }, { label: esc(t('Discard')), primary: true, onClick: () => { upReset(); toast(esc(t('Pages discarded.'))); go('/student/home'); } }] });
       });
       $$('[data-f]', el).forEach((b) => b.addEventListener('click', () => { UP.filter = b.dataset.f; refresh(); }));
       $$('input[name=ex]', el).forEach((r) => r.addEventListener('change', () => { UP.examId = r.value; UP.pages = []; refresh(); }));
@@ -226,7 +238,7 @@ function uploadView() {
       on('[data-next]', () => {
         if (UP.step === 2 && UP.pages.length !== e.pages) {
           return modal({ title: esc(t('Page count is different')), body: `<p>${esc(t('Your teacher expects {b} pages. You added {a}.', { a: UP.pages.length, b: e.pages }))}</p><p class="muted">${esc(t('Continue only if this is really the whole exam.'))}</p>`,
-            actions: [{ label: esc(t('Add more pages')) }, { label: esc(t('Continue anyway')), primary: true, onClick: () => { UP.step++; refresh(); } }] });
+            actions: [{ label: esc(t('Add more pages')) }, { label: esc(t('Continue anyway')), primary: true, onClick: () => { UP.countOk = true; UP.step++; refresh(); } }] });
         }
         UP.step++; refresh();
       });
@@ -264,13 +276,14 @@ function uploadView() {
         }));
       });
       const ok = $('[data-ok]', el);
-      ok && ok.addEventListener('change', () => { UP.checked = ok.checked; $('[data-send]', el).disabled = !ok.checked; });
+      ok && ok.addEventListener('change', () => { UP.checked = ok.checked; refresh(); setTimeout(() => { const c = $('[data-ok]'); c && c.focus(); }, 0); });
       on('[data-send]', () => {
         e.status = 'checking'; e.sent = '10 Oct';
         S.uploads = S.uploads || {}; S.uploads[e.id] = UP.pages.map((p) => ({ src: p.src || null }));
         sendToTeacher(e);
-        addPoints(5, 'Sent exam on time');
+        addPoints(5, 'Uploaded exam on time');
         UP.sent = true; save(); refresh();
+        toast(esc(t('Uploaded to {tc}.', { tc: subj(e.subject).teacher })));
       });
     },
   };
@@ -337,9 +350,10 @@ route('/student/results', 'student', () => {
   const pending = S.exams.filter((e) => ['checking', 'rescan'].includes(e.status) && (RF.f === 'all' || e.subject === RF.f));
   return {
     title: 'My Results', nav: 'results',
-    html: `<div class="row between wrap head-row"><h1 class="page inline">${esc(t('My Results'))}</h1><div class="row gap wrap">${chips(SUBJECT_FILTER(), RF.f)}<button type="button" class="pill dashed" data-sort>${icon('filter', 15)} ${esc(t(RF.sort === 'newest' ? 'Newest' : 'Best score'))}</button></div></div>
-      <section class="card list-card">${list.map((e) => `<a class="res-row ${e.isNew ? 'new' : ''}" href="#/student/result/${e.id}">${subjIcon(e.subject)}<span class="grow"><strong>${esc(examName(e))}</strong>${e.isNew ? `<span class="chip dark tiny">${esc(t('NEW'))}</span>` : ''}<span class="muted small block">${esc(t('Checked by {tc}', { tc: subj(e.subject).teacher }))} · ${esc(e.checked)}</span></span>${starsFor(e.score)}<strong class="pct">${e.score}%</strong>${change(e.change)}<span class="btn sm">${esc(t('Open'))}</span></a>`).join('') || `<p class="muted pad">${esc(t('No results yet.'))}</p>`}</section>
-      ${pending.length ? `<section class="card dashed"><h2>${icon('clock', 18)} ${esc(t('Still being checked'))} (${pending.length})</h2>${pending.map((e) => `<div class="row between center line"><span class="row gap center">${subjIcon(e.subject, 16)}<span class="muted">${esc(examName(e))} · ${esc(t('sent'))} ${esc(e.sent)}</span></span>${statusChip(e)}</div>`).join('')}</section>` : ''}`,
+    html: `${pageHead(t('My Results'), { crumbs: [['/student/home', t('Home')], [null, t('My Results')]], desc: t('Every grade your teacher checked, and what to practise next.') })}
+      <div class="row between wrap filter-row">${chips(SUBJECT_FILTER(), RF.f)}<button type="button" class="pill" data-sort>${icon('filter', 15)} ${esc(t(RF.sort === 'newest' ? 'Newest' : 'Best score'))}</button></div>
+      <section class="card list-card">${list.map((e) => `<a class="res-row ${e.isNew ? 'new' : ''}" href="#/student/result/${e.id}">${subjIcon(e.subject)}<span class="grow"><strong>${esc(examName(e))}</strong>${e.isNew ? `<span class="chip good tiny">${esc(t('NEW'))}</span>` : ''}<span class="muted small block">${esc(t('Checked by {tc}', { tc: subj(e.subject).teacher }))} · ${esc(td(e.checked))}</span></span>${starsFor(e.score)}<strong class="pct">${e.score}%</strong>${change(e.change)}<span class="btn sm">${esc(t('Open'))}</span></a>`).join('') || `<div class="pad empty"><p class="muted">${esc(t('No results yet. Upload your first exam.'))}</p><a class="btn" href="#/student/upload">${esc(t('Upload my exam'))}</a></div>`}</section>
+      ${pending.length ? `<section class="card"><h2>${icon('clock', 18)} ${esc(t('Still being checked'))} (${pending.length})</h2>${pending.map((e) => `<div class="row between center wrap line"><span class="row gap center">${subjIcon(e.subject, 16)}<span><b>${esc(examName(e))}</b> <span class="muted small">· ${esc(t('uploaded'))} ${esc(td(e.sent))}</span></span></span>${tracker(e)}</div>`).join('')}</section>` : ''}`,
     mount(el) {
       $$('[data-f]', el).forEach((b) => b.addEventListener('click', () => { RF.f = b.dataset.f; refresh(); }));
       $('[data-sort]', el).addEventListener('click', () => { RF.sort = RF.sort === 'newest' ? 'best' : 'newest'; refresh(); });
@@ -363,7 +377,7 @@ route('/student/result/:id', 'student', ({ id }) => {
     html: `${backBar('/student/results', [['/student/home', t('Home')], ['/student/results', t('My Results')], [null, examName(e)]])}
       <div class="res-top">
         <section class="card score-card"><div class="big">${pct}%</div>${starsFor(pct)}<h2>${esc(t(d.headline || 'Good effort!'))}</h2><p class="muted small">${e.change > 0 ? icon('arrowUp', 14) + ' ' + esc(t('{n}% better than last test', { n: e.change })) : e.change < 0 ? icon('arrowDown', 14) + ' ' + esc(t('{n}% lower than last test', { n: -e.change })) : ''}</p></section>
-        <div class="explain"><span class="chip dark">${icon('check', 15)} ${esc(t('Checked by {tc}', { tc: subj(e.subject).teacher }))}</span>
+        <div class="explain"><span class="chip good">${icon('check', 15)} ${esc(t('Checked by {tc}', { tc: subj(e.subject).teacher }))}</span>
           <div class="explain-cards">
             <div class="card ex"><h3>1. ${esc(t('What happened'))}</h3><p>${esc(RT.happened)}</p></div>
             <div class="card ex"><h3>2. ${esc(t('Why'))}</h3><p>${esc(RT.why)}</p></div>
@@ -375,13 +389,13 @@ route('/student/result/:id', 'student', ({ id }) => {
         <section class="card"><h2>${icon('list', 20)} ${esc(t('My answers'))}</h2>
           <div class="answers">${d.questions.map((q) => {
             const ok = q.got === q.max, open = OPENQ === q.q;
-            return `<div class="ans ${open ? 'open' : ''}"><button type="button" class="ans-row" data-q="${q.q}" aria-expanded="${open}"><span class="mark ${ok ? 'ok' : 'bad'}">${icon(ok ? 'check' : 'x', 16)}</span><span class="grow">Q${q.q} · ${esc(t(q.text))}</span><b>${q.got}/${q.max}</b>${icon(open ? 'down' : 'right', 16)}</button>
-              ${open ? `<div class="ans-body"><div class="mini-scan">${scanSVG([{ q: 'Q' + q.q, a: q.your }], { mini: true })}</div><div><p><b>${esc(t('Your answer:'))}</b> ${esc(q.your)}</p><p><b>${esc(t('Right answer:'))}</b> ${esc(q.right)}</p>${q.explain ? `<p class="muted">${t(q.explain)}</p>` : ''}</div></div>` : ''}</div>`;
+            return `<div class="ans ${open ? 'open' : ''}"><button type="button" class="ans-row" data-q="${q.q}" aria-expanded="${open}"><span class="mark ${ok ? 'ok' : 'bad'}">${icon(ok ? 'check' : 'x', 16)}</span><span class="grow">${esc(t('Question {n}', { n: q.q }))} · ${esc(t(q.text))}</span><b>${q.got}/${q.max}</b>${icon(open ? 'down' : 'right', 16)}</button>
+              ${open ? `<div class="ans-body"><div class="mini-scan">${scanSVG([{ q: q.q + '.', a: q.your }], { mini: true })}</div><div><p><b>${esc(t('Your answer:'))}</b> ${esc(q.your)}</p><p><b>${esc(t('Right answer:'))}</b> ${esc(q.right)}</p>${q.explain ? `<p class="muted">${t(q.explain)}</p>` : ''}</div></div>` : ''}</div>`;
           }).join('')}</div></section>
         <div class="stack">
           <section class="card says">${initials('MA')}<div><h3>${esc(t('{tc} says', { tc: subj(e.subject).teacher }))}</h3><p>“${esc(t(d.teacherSays))}”</p></div></section>
-          ${d.workOn ? `<section class="card dashed"><h3>${icon('flag', 18)} ${esc(t('Let’s work on'))}</h3><p>${esc(t(d.workOn.topic))}. ${esc(t('You made this mistake'))} <b>${d.workOn.times} ${esc(t('times'))}</b> ${esc(t('in your last tests.'))}</p></section>` : ''}
-          ${wrong[0] ? `<button type="button" class="btn" data-ask="Why is Q${wrong[0].q} wrong?">${icon('chat', 18)} ${esc(t('Ask Buddy about Q{n}', { n: wrong[0].q }))}</button>` : ''}
+          ${d.workOn ? `<section class="card note"><h3>${icon('flag', 18)} ${esc(t('Let’s work on'))}</h3><p>${esc(t(d.workOn.topic))}. ${esc(t('You made this mistake'))} <b>${d.workOn.times} ${esc(t('times'))}</b> ${esc(t('in your last tests.'))}</p></section>` : ''}
+          ${wrong[0] ? `<button type="button" class="btn" data-ask="Why is question ${wrong[0].q} wrong?">${icon('chat', 18)} ${esc(t('Ask Buddy about question {n}', { n: wrong[0].q }))}</button>` : ''}
           ${g ? `<div class="card game-mini">${gameArt(g.id, 70)}<span class="grow"><strong>${esc(g.title)}</strong><span class="muted small block">${g.mins} min · +${g.pts} ${esc(t('points'))}</span></span><a class="btn primary sm" href="#/student/play/${g.id}">${esc(t('Play'))}</a></div>` : ''}
         </div>
       </div>`,
@@ -408,12 +422,12 @@ route('/student/progress', 'student', () => {
   const latest = (id) => { const h = S.history[id]; return h[h.length - 1].v; };
   return {
     title: 'My Progress', nav: 'progress',
-    html: `<div class="row between wrap head-row"><h1 class="page inline">${esc(t('My Progress'))}</h1>${chips(SUBJECT_FILTER(), PF)}</div>
+    html: `${pageHead(t('My Progress'), { crumbs: [['/student/home', t('Home')], [null, t('My Progress')]], desc: t('How your scores change over time, and what to practise.'), right: chips(SUBJECT_FILTER(), PF) })}
       <div class="cols-3-2">
         <section class="card"><h2>${esc(all ? t('All my tests') : t('My {s} tests', { s: t(subj(PF).name) }))}</h2>${chart}</section>
         <div class="stack">
           <section class="card"><h3>${esc(t('I’m great at'))}</h3><p>${great.map((x) => esc(t(x))).join(' · ')}</p></section>
-          <section class="card dashed"><h3>${esc(t('Let’s practise'))}</h3><div class="row gap wrap">${prac.map((p) => `<a class="chip link-chip" href="#/student/games">${esc(t(p))}</a>`).join('')}</div></section>
+          <section class="card note"><h3>${esc(t('Let’s practise'))}</h3><div class="row gap wrap">${prac.map((p) => `<a class="chip link-chip" href="#/student/games">${esc(t(p))}</a>`).join('')}</div></section>
         </div>
       </div>
       <div class="cols-3-2">
@@ -441,7 +455,7 @@ route('/student/rewards', 'student', () => {
   const star = S.classmates.find((c) => c.name === S.star.name);
   return {
     title: 'Rewards', nav: 'rewards',
-    html: `<h1 class="page">${esc(t('My Rewards'))}</h1>
+    html: `${pageHead(t('My Rewards'), { crumbs: [['/student/home', t('Home')], [null, t('Rewards')]], desc: t('Your points, your avatar and the class leaderboard.') })}
       <div class="cols-1-2">
         <section class="card center-col"><h2>${esc(t('My avatar'))}</h2>${avatarSVG(st.avatar, 130)}<a class="btn" href="#/student/avatar">${esc(t('Change look'))}</a></section>
         <section class="card"><h2>${esc(t('My points'))}</h2><div class="pts"><span class="big">${st.points}</span><span class="muted">/ ${goal}</span></div>${bar((st.points / goal) * 100, 'lg')}
@@ -503,7 +517,7 @@ route('/student/games', 'student', () => {
   const list = S.games.filter((g) => GF === 'all' || g.subject === GF);
   return {
     title: 'Games', nav: 'games',
-    html: `<div class="row between wrap head-row"><h1 class="page inline">${esc(t('Games'))}</h1>${chips(SUBJECT_FILTER(), GF)}</div>
+    html: `${pageHead(t('Games'), { crumbs: [['/student/home', t('Home')], [null, t('Games')]], desc: t('Short games that help with what you are learning.'), right: chips(SUBJECT_FILTER(), GF) })}
       ${picked && (GF === 'all' || picked.subject === GF) ? `<p class="label">${esc(t('Picked for you'))}</p><section class="card shade picked">${gameArt(picked.id, 120)}<span class="grow"><strong class="lg-text">${esc(picked.title)}</strong><span class="block">${esc(t('Helps with:'))} ${esc(picked.helps)} · ${picked.mins} min · +${picked.pts} ${esc(t('points'))}</span></span><a class="btn primary lg" href="#/student/play/${picked.id}">${icon('play', 18)} ${esc(t('Play'))}</a></section>` : ''}
       <div class="grid-4">${list.filter((g) => !(g.picked && (GF === 'all' || g.subject === GF))).map((g) => `<a class="card game-card" href="#/student/play/${g.id}"><div class="art">${gameArt(g.id, 110)}</div><strong>${esc(g.title)}</strong><span class="muted small">${esc(t(subj(g.subject).name))} · ${g.mins} min</span><span class="small right">${g.played ? esc(t('Played {n}×', { n: g.played })) : esc(t('New'))}</span></a>`).join('')}</div>`,
     mount(el) { $$('[data-f]', el).forEach((b) => b.addEventListener('click', () => { GF = b.dataset.f; refresh(); })); },
@@ -513,7 +527,7 @@ route('/student/games', 'student', () => {
 /* ---------- Help & settings ---------- */
 route('/student/help', 'student', () => ({
   title: 'Help & settings', nav: 'help',
-  html: `<h1 class="page">${esc(t('Help & settings'))}</h1>
+  html: `${pageHead(t('Help & settings'), { crumbs: [['/student/home', t('Home')], [null, t('Help & settings')]], desc: t('Change how GradeBuddy looks, or ask Buddy for help.') })}
     <div class="cols-1-1 start">${settingsCard()}
       <section class="card"><h2>${icon('help', 20)} ${esc(t('Need help?'))}</h2><p class="muted">${esc(t('Buddy can show you around the app.'))}</p>
         <div class="row gap wrap">${['How do I upload?', 'Where are my stars?', 'How do I play games?', 'Show me my results'].map((q) => `<button type="button" class="btn sm" data-ask="${esc(q)}">${esc(t(q))}</button>`).join('')}</div></section></div>
@@ -524,20 +538,21 @@ route('/student/help', 'student', () => ({
 /* ---------- Messages ---------- */
 let MT = 'all';
 route('/student/messages', 'student', () => {
+  S.inbox.forEach((n) => { n.seen = true; }); save();
   const nNew = unreadStudent();
   const list = S.inbox.filter((n) => MT === 'all' || (MT === 'teacher' ? n.kind === 'teacher' : n.kind === 'reward'));
   const item = (n) => `<div class="msg ${n.unread ? 'unread' : ''}" data-id="${n.id}"><span class="dot" aria-label="${n.unread ? esc(t('New')) : ''}"></span>${n.icon === 'avatar' ? initials('MA') : `<span class="sq-ic">${icon(n.icon || 'mail', 18)}</span>`}<span class="grow"><span>${t(n.html, tvars(n.vars))}</span>${n.time || n.sub ? `<span class="small block muted">${esc(n.time || '')}${n.time && n.sub ? ' · ' : ''}${esc(t(n.sub || ''))}</span>` : ''}</span>${n.action ? `<a class="btn ${n.action.primary ? 'primary' : ''} sm" href="#${n.action.href}" data-read="${n.id}">${esc(t(n.action.label))}</a>` : ''}</div>`;
   const today = list.filter((n) => n.day === 'today'), earlier = list.filter((n) => n.day !== 'today');
   return {
     title: 'My messages', nav: '',
-    html: `${backBar('/student/home', [['/student/home', t('Home')], [null, t('My messages')]])}<div class="row between head-row"><h1 class="page inline">${esc(t('My messages'))}</h1><button type="button" class="btn ghost sm" data-readall ${nNew ? '' : 'disabled'}>${icon('check', 16)} ${esc(t('Mark all as read'))}</button></div>
+    html: `${backBar('/student/home', [['/student/home', t('Home')], [null, t('My messages')]])}${pageHead(t('My messages'), { desc: t('Messages from your teachers, and your rewards.'), right: `<button type="button" class="btn ghost sm" data-readall ${nNew ? '' : 'disabled'}>${icon('check', 16)} ${esc(t('Mark all as read'))}</button>` })}
       <div class="tabs" role="tablist"><button type="button" role="tab" data-t="all" aria-selected="${MT === 'all'}">${esc(t('All'))}${nNew ? ` (${nNew} ${esc(t('new'))})` : ''}</button><button type="button" role="tab" data-t="teacher" aria-selected="${MT === 'teacher'}">${esc(t('From teachers'))}</button><button type="button" role="tab" data-t="reward" aria-selected="${MT === 'reward'}">${esc(t('Rewards'))}</button></div>
       ${today.length ? `<p class="label">${esc(t('Today'))}</p>${today.map(item).join('')}` : ''}
       ${earlier.length ? `<p class="label">${esc(t('Earlier'))}</p>${earlier.map(item).join('')}` : ''}
-      ${!list.length ? `<p class="muted">${esc(t('No messages here.'))}</p>` : ''}`,
+      ${!list.length ? `<div class="empty"><p class="muted">${esc(t('No messages here yet.'))}</p><a class="btn" href="#/student/home">${esc(t('Back to Home'))}</a></div>` : ''}`,
     mount(el) {
       $$('[data-t]', el).forEach((b) => b.addEventListener('click', () => { MT = b.dataset.t; refresh(); }));
-      $('[data-readall]', el).addEventListener('click', () => { S.inbox.forEach((n) => { n.unread = false; }); save(); refresh(); });
+      $('[data-readall]', el).addEventListener('click', () => { S.inbox.forEach((n) => { n.unread = false; }); save(); toast(esc(t('All marked as read.'))); refresh(); });
       $$('.msg', el).forEach((m) => m.addEventListener('click', (ev) => { const n = S.inbox.find((x) => x.id === m.dataset.id); if (n.unread) { n.unread = false; save(); if (!ev.target.closest('a')) refresh(); } }));
     },
   };
@@ -548,7 +563,7 @@ const Buddy = (() => {
   let open = false, msgs = [], panel = null;
   const ctxExam = () => (CUR.view && CUR.view.buddy && CUR.view.buddy.examId) || null;
   const chipsFor = () => ctxExam()
-    ? [`Why is Q${(S.details[ctxExam()].questions.find((q) => q.got < q.max) || { q: 1 }).q} wrong?`, 'How do I upload?', 'Where are my stars?', 'Give me practice']
+    ? [`Why is question ${(S.details[ctxExam()].questions.find((q) => q.got < q.max) || { q: 1 }).q} wrong?`, 'How do I upload?', 'Where are my stars?', 'Give me practice']
     : ['Where are my stars?', 'How do I upload?', 'Show me my results', 'How do I play games?'];
   function greet() {
     const e = ctxExam() && exam(ctxExam());
@@ -562,19 +577,19 @@ const Buddy = (() => {
     const newest = graded().filter((x) => S.details[x.id]).sort((a, b) => dnum(b.checked) - dnum(a.checked))[0];
     const examId = ctxExam() || (newest && newest.id);
     const d = S.details[examId];
-    const qn = (s.match(/q\s?(\d+)/) || [])[1];
+    const qn = (s.match(/(?:question|frage|q)\s?(\d+)/) || [])[1];
     if (/change|better grade|ändern|note ändern/.test(s) && /grade|note|mark/.test(s)) return [{ html: esc(t('I can’t change grades. Only your teacher can. If you think something is wrong, send your teacher a message.')) }];
     if (/star|point|reward|stern|punkt|belohn/.test(s)) { highlight('rewards'); return [{ html: t('They’re in <b>Rewards</b>. Look on the left side-bar!') }, { html: t('You have <b>{n} points!</b>', { n: S.student.points }), actions: [['go:/student/rewards', 'trophy', 'Open Rewards']] }]; }
     if ((qn || /why.*wrong|warum|falsch/.test(s)) && !d) return [{ html: esc(t('You have no checked results yet. Your teacher is still checking.')) }];
     if (qn || /why.*wrong|warum|falsch/.test(s)) {
       const qq = d.questions.find((x) => String(x.q) === qn) || d.questions.find((x) => x.got < x.max);
       if (!qq) return [{ html: esc(t('You got every question right on this test!')) }];
-      if (qq.got === qq.max) return [{ html: esc(t('Q{n} was right! You got {a} of {b} marks.', { n: qq.q, a: qq.got, b: qq.max })) }];
+      if (qq.got === qq.max) return [{ html: esc(t('Question {n} was right! You got {a} of {b} marks.', { n: qq.q, a: qq.got, b: qq.max })) }];
       const text = qq.explain || `${t('Your answer:')} ${esc(qq.your)}. ${t('Right answer:')} ${esc(qq.right)}.`;
       const g = S.games.find((x) => x.id === d.next.game);
-      return [{ html: text, actions: [[`showq:${examId}:${qq.q}`, 'eye', `Show me Q${qq.q}`], [`speak:${text}`, 'speaker', '']] }, ...(g ? [{ game: g.id }] : [])];
+      return [{ html: text, actions: [[`showq:${examId}:${qq.q}`, 'eye', t('Show me question {n}', { n: qq.q })], [`speak:${text}`, 'speaker', '']] }, ...(g ? [{ game: g.id }] : [])];
     }
-    if (/upload|send|photo|scan|hochlad|foto/.test(s)) return [{ html: t('Press <b>Upload my exam</b> on Home. Then: 1. choose the exam, 2. take a photo of each page, 3. check and send.'), actions: [['go:/student/upload', 'upload', 'Upload my exam']] }];
+    if (/upload|send|photo|scan|hochlad|foto/.test(s)) return [{ html: t('Press <b>Upload my exam</b> on Home. Then: 1. choose the exam, 2. take a photo of each page, 3. check and upload.'), actions: [['go:/student/upload', 'upload', 'Upload my exam']] }];
     if (/practi|übung|üben|exercise/.test(s)) { const g = S.games.find((x) => d && x.id === d.next.game) || S.games.find((x) => x.picked) || S.games[0]; return [{ html: esc(t('This game was picked by your teacher for you:')) }, { game: g.id }]; }
     if (/game|play|spiel/.test(s)) { highlight('games'); return [{ html: t('Open <b>Games</b> on the left side-bar, pick a game and press <b>Play</b>. Every game you finish gives you points!'), actions: [['go:/student/games', 'game', 'Open Games']] }]; }
     if (/result|grade|score|ergebnis|note/.test(s)) {

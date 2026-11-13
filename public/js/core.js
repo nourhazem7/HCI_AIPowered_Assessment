@@ -51,6 +51,7 @@ function route(path, role, fn) {
 function go(p) { if (location.hash === '#' + p) render(); else location.hash = p; }
 function refresh() { render(true); }
 let CUR = { path: '/', view: null, role: null };
+const VISITED = [];   // screens visited, for the Back button (pages marked noBack are skipped)
 
 function render(keep) {
   const path = location.hash.slice(1) || '/';
@@ -65,6 +66,7 @@ function render(keep) {
     r.keys.forEach((k, i) => { params[k] = decodeURIComponent(m[i + 1]); });
     const view = r.fn(params) || {};
     CUR = { path, view, role: r.role };
+    if (view.html && !view.noBack && VISITED[VISITED.length - 1] !== path) { VISITED.push(path); if (VISITED.length > 50) VISITED.shift(); }
     draw(r.role, view);
     if (keep) window.scrollTo(0, y); else window.scrollTo(0, 0);
     return;
@@ -81,7 +83,7 @@ const ROLE = {
     home: '/student/home', label: 'Student',
     who: () => `${S.student.name} · ${t(S.student.grade)}`,
     avatar: () => avatarSVG(S.student.avatar, 34),
-    bell: unreadStudent,
+    bell: () => S.inbox.filter((n) => n.unread && !n.seen).length,
     nav: () => [
       ['home', '/student/home', 'home', 'Home'],
       ['subjects', '/student/subjects', 'books', 'My Subjects'],
@@ -97,7 +99,7 @@ const ROLE = {
     home: '/teacher/dashboard', label: 'Teacher',
     who: () => S.teacher.name,
     avatar: () => initials('MA'),
-    bell: () => S.teacher.notifs.filter((n) => n.unread).length,
+    bell: () => S.teacher.notifs.filter((n) => n.unread && !n.seen).length,
     nav: () => [
       ['dashboard', '/teacher/dashboard', 'grid', 'Dashboard'],
       ['exams', '/teacher/exams', 'doc', 'Exams & mark schemes'],
@@ -116,7 +118,7 @@ const ROLE = {
     home: '/parent/overview', label: 'Parent',
     who: () => S.parent.name,
     avatar: () => initials('MM'),
-    bell: () => S.parent.notifs.filter((n) => n.unread).length,
+    bell: () => S.parent.notifs.filter((n) => n.unread && !n.seen).length,
     nav: () => [
       ['overview', '/parent/overview', 'home', 'Overview'],
       ['exams', '/parent/exams', 'doc', 'Exams'],
@@ -168,9 +170,10 @@ function bottomNav(active) {
 }
 
 function draw(role, v) {
+  document.documentElement.dataset.role = role || 'none'; // students get bigger text and tap targets
   document.title = (v.title ? t(v.title) + ' · ' : '') + 'GradeBuddy';
   const app = $('#app');
-  if (!role) { app.innerHTML = v.html; v.mount && v.mount(app); return; }
+  if (!role) { app.innerHTML = v.html; v.mount && v.mount(app); fitActionBar(); return; }
   const focus = v.layout === 'focus';
   app.innerHTML = `<div class="shell ${focus ? 'is-focus' : ''} role-${role}">
     ${topbar(role)}
@@ -181,8 +184,17 @@ function draw(role, v) {
   ${role === 'student' && !focus ? bottomNav(v.nav) : ''}`;
   bindShell(role);
   v.mount && v.mount($('#main'));
+  fitActionBar();
   if (role === 'student' && Buddy.isOpen()) Buddy.mountPanel();
 }
+
+/* Pages with a pinned action bar (verify, review) get bottom padding equal to the bar's height */
+function fitActionBar() {
+  const bar = $('.flow-foot.sticky'), main = $('#main');
+  document.documentElement.style.setProperty('--bar-h', bar ? bar.offsetHeight + 'px' : '0px');
+  if (main) main.classList.toggle('has-bar', !!bar);
+}
+window.addEventListener('resize', fitActionBar);
 
 function closeMenus() { $$('.pop').forEach((p) => { p.hidden = true; }); }
 
@@ -197,7 +209,10 @@ function bindShell(role) {
     p.innerHTML = `<div class="pop-head"><strong>${esc(t('Notifications'))}</strong><button type="button" class="link" data-readall>${esc(t('Mark all as read'))}</button></div>` +
       (list.length ? list.map((n) => `<a href="#${n.href}" data-notif="${n.id}" class="notif ${n.unread ? 'unread' : ''}"><span class="dot"></span>${esc(t(n.text, tvars(n.vars)))}</a>`).join('') : `<p class="muted pad">${esc(t('Nothing new.'))}</p>`);
     p.hidden = !h;
-    p.querySelector('[data-readall]').addEventListener('click', (ev) => { ev.stopPropagation(); list.forEach((n) => { n.unread = false; }); save(); refresh(); });
+    // opening the list clears the badge; items stay bold until read
+    list.forEach((n) => { n.seen = true; }); save();
+    const c = $('#bell .count'); if (c) { c.remove(); $('#bell').setAttribute('aria-label', t('Notifications')); }
+    p.querySelector('[data-readall]').addEventListener('click', (ev) => { ev.stopPropagation(); list.forEach((n) => { n.unread = false; n.seen = true; }); save(); toast(esc(t('All marked as read.'))); refresh(); });
     $$('[data-notif]', p).forEach((a) => a.addEventListener('click', () => { const n = list.find((x) => x.id === a.dataset.notif); n.unread = false; save(); }));
   });
   $$('.pop').forEach((p) => p.addEventListener('click', (e) => e.stopPropagation()));
@@ -213,11 +228,18 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMen
 function bindSearch(box) {
   const input = $('input', box), out = $('.search-results', box);
   const items = () => {
-    const q = input.value.trim().toLowerCase();
-    if (!q) return [];
-    const st = S.teacher.roster.filter((s) => s.short.toLowerCase().includes(q)).map((s) => ({ label: s.short, sub: t('Student') + ' · ' + t('Class') + ' 4B', href: '/teacher/student/' + s.id }));
-    const ex = S.teacher.schemes.filter((x) => (x.subject + ' ' + x.title).toLowerCase().includes(q)).map((x) => ({ label: x.subject + ' · ' + x.title, sub: t('Exam') + ' · ' + x.cls, href: '/teacher/exams/' + x.id }));
-    return [...st, ...ex].slice(0, 8);
+    const words = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    const hit = (...hay) => { const h = hay.join(' ').toLowerCase(); return words.every((w) => h.includes(w)); };
+    const T = S.teacher, sname = (sid) => (T.roster.find((x) => x.id === sid) || {}).short || '';
+    const paper = (x, kind, href) => ({ label: `${sname(x.sid)} · ${t(x.exam || 'Fractions Test')}`, sub: t(kind), href });
+    const queue = [
+      ...T.review.filter((r) => r.status === 'review' && hit(sname(r.sid), r.exam || 'Fractions Test', t(r.exam || 'Fractions Test'))).map((r) => paper(r, 'To review', '/teacher/review/' + r.id)),
+      ...T.verify.filter((v) => v.status === 'verify' && hit(sname(v.sid), v.exam || 'Fractions Test', t(v.exam || 'Fractions Test'))).map((v) => paper(v, 'To verify', '/teacher/verify/' + v.id)),
+    ];
+    const st = T.roster.filter((s) => hit(s.short)).map((s) => ({ label: s.short, sub: t('Student') + ' · ' + t('Class') + ' 4B', href: '/teacher/student/' + s.id }));
+    const ex = T.schemes.filter((x) => hit(x.subject, x.title, t(x.subject), t(x.title))).map((x) => ({ label: t(x.subject) + ' · ' + t(x.title), sub: t('Exam') + ' · ' + x.cls, href: '/teacher/exams/' + x.id }));
+    return [...queue, ...st, ...ex].slice(0, 8);
   };
   const draw = () => {
     const list = items();
@@ -237,11 +259,26 @@ function chips(opts, active, attr = 'data-f') {
 }
 const SUBJECT_FILTER = () => [['all', 'All'], ...S.subjects.map((s) => [s.id, s.name])];
 function subj(id) { return S.subjects.find((s) => s.id === id) || { name: id, icon: 'book', teacher: '' }; }
-const SUBJ_COLORS = { math: '#1f6f5c', english: '#3d5a99', deutsch: '#b5651d', science: '#7a5aa6' };
+const SUBJ_COLORS = { math: '#1f6f5c', english: '#3d5a99', deutsch: '#a2541d', science: '#2c7a8c' };
 function subjIcon(id, size = 20) { const c = SUBJ_COLORS[id]; return `<span class="sq-ic" ${c ? `style="color:${c};background:${c}1a;border-color:${c}55"` : ''}>${icon(subj(id).icon, size)}</span>`; }
 /* Same back button + breadcrumb on every inner page. crumbs = [[href, label], ..., [null, current]] */
+function crumbNav(crumbs) {
+  return `<nav class="crumbs" aria-label="${esc(t('You are here'))}">${crumbs.map(([h, l]) => h ? `<a href="#${h}">${esc(l)}</a>` : `<span aria-current="page">${esc(l)}</span>`).join(' › ')}</nav>`;
+}
+/* Back goes to the previous screen; `href` is only used when there is none (e.g. the page was opened from a link) */
 function backBar(href, crumbs) {
-  return `<div class="backbar"><a class="btn ghost sm" href="#${href}">${icon('arrowL', 16)} ${esc(t('Back'))}</a>${crumbs ? `<nav class="crumbs" aria-label="${esc(t('You are here'))}">${crumbs.map(([h, l]) => h ? `<a href="#${h}">${esc(l)}</a>` : `<span aria-current="page">${esc(l)}</span>`).join(' › ')}</nav>` : ''}</div>`;
+  return `<div class="backbar"><a class="btn ghost sm" href="#${href}" data-nav-back>${icon('arrowL', 16)} ${esc(t('Back'))}</a>${crumbs ? crumbNav(crumbs) : ''}</div>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-nav-back]'); if (!b) return;
+  const here = location.hash.slice(1);
+  while (VISITED.length && VISITED[VISITED.length - 1] === here) VISITED.pop();
+  const prev = VISITED.pop();
+  if (prev) { e.preventDefault(); go(prev); }
+});
+/* Same header on every screen: breadcrumb, H1, optional one-line description, optional controls on the right */
+function pageHead(title, o = {}) {
+  return `${o.crumbs ? crumbNav(o.crumbs) : ''}<div class="row between wrap head-row page-head"><div><h1 class="page inline">${esc(title)}</h1>${o.desc ? `<p class="page-desc">${esc(o.desc)}</p>` : ''}</div>${o.right || ''}</div>`;
 }
 /* Dates in German: Mon -> Mo, Oct -> Okt */
 function td(s) {
@@ -249,22 +286,54 @@ function td(s) {
   const W = { Mon: 'Mo', Tue: 'Di', Wed: 'Mi', Thu: 'Do', Fri: 'Fr', Sat: 'Sa', Sun: 'So' }, M = { Mar: 'Mär', May: 'Mai', Oct: 'Okt', Dec: 'Dez' };
   return String(s).replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g, (d) => W[d]).replace(/\b(Mar|May|Oct|Dec)\b/g, (m) => M[m]);
 }
+/* "?" opens tips for the screen you are on (keyed by the sidebar item) */
+const SETTINGS_HELP = ['Change the language, text size and sounds. Changes are saved straight away.', 'Reset demo data puts the whole demo back to the start and signs you out.'];
 const HELP = {
-  teacher: [['How do I grade a new exam?', 'Students upload photos. Open <b>To verify</b>, fix the words the AI could not read, then send the papers to AI grading.'],
-    ['How do I publish a grade?', 'Open <b>To review</b>, accept or change each AI score, then press <b>Publish</b>. Nothing reaches students or parents before you publish.'],
-    ['What is a red flag?', 'The AI raises a red flag when a student repeats the same mistake. You confirm or dismiss it in <b>Red flags</b>.'],
-    ['Shortcuts', 'In <b>To verify</b>: <b>Tab</b> jumps to the next unclear word, <b>Enter</b> accepts it. Use the search box to find a student or exam.']],
-  parent: [['Where are my child’s grades?', '<b>Exams → Completed</b> shows every grade your child’s teacher confirmed.'],
-    ['How do I talk to a teacher?', 'Open <b>Notes & posts</b> and press <b>Reply</b>, or use <b>Ask the teacher</b> on an upcoming exam.'],
-    ['I have two children', 'Switch between them with the tabs at the top of every page.'],
-    ['Change language or text size', 'Open <b>Settings</b> from the menu on the left.']],
+  teacher: {
+    dashboard: ['The numbers at the top show what is waiting for you: text to verify, AI grades to review and red flags.', 'The work queue lists every paper and its stage. Use the button on a row to continue.', 'Search for a student or an exam at the top. Enter opens the first match.'],
+    exams: ['Each exam has questions, marks and the criteria the AI uses to grade.', 'Upload a mark scheme PDF and the AI fills in the questions. Check them before you open the exam.', 'Students can upload only after you press Open for upload.'],
+    verify: ['Words the AI could not read are marked in amber. Pick the right word or type it.', 'Tab jumps to the next unclear word, Enter accepts the suggestion.', 'Confirm every page, then send the paper to AI grading.', 'If a page can’t be read, use Ask for a new photo.'],
+    review: ['The AI suggests a mark for every question and explains why. Accept it (A) or change it.', 'The ↓ and ↑ keys move between questions. Amber questions need you.', 'Decide the red flag and the learning gap, then publish. You can undo for 10 seconds.'],
+    students: ['The table shows % correct per topic. Darker cells mean lower scores, and the number is always shown.', 'Group students who make the same mistake and send them practice together.', 'Open a student to see their gaps, red flags and your private notes.'],
+    flags: ['A red flag means the AI saw the same mistake several times.', 'Confirm it to send practice or tell the parent, or dismiss it with a reason.', 'Decided flags move to the Confirmed or Dismissed tab.'],
+    messages: ['Pick a conversation on the left or start a new one.', 'Choose the type (practice, comment or reminder) and attach a game if you like.', 'Students see your message on their Home page, parents in Notes & posts.'],
+    posts: ['Posts go to students and parents, or to one group only.', 'Add a photo or name a Star of the Week.', 'Use Edit / delete on a post to change it.'],
+    settings: SETTINGS_HELP,
+  },
+  parent: {
+    overview: ['Switch between your children with the tabs at the top.', 'Recent grades and the subject bars show how your child is doing.', 'A red box means the teacher suggests extra practice at home.'],
+    exams: ['Upcoming shows the next exams and how to prepare. You can add them to your calendar.', 'Completed shows the grades the teacher published, with feedback.', 'Use Ask the teacher to send a question about an exam.'],
+    progress: ['The chart shows scores over the term. Pick a subject at the top.', 'Mistakes that keep coming back have a How can I help? button with ideas for home.'],
+    notes: ['Teacher notes are about your child. Class posts are for the whole class.', 'Reply to a note or request a meeting. The teacher gets it as a message.'],
+    settings: SETTINGS_HELP,
+  },
 };
 function helpModal(role) {
-  modal({ title: esc(t('Help')), body: `<div class="faq">${HELP[role].map(([q, a]) => `<details><summary>${esc(t(q))}</summary><p>${t(a)}</p></details>`).join('')}</div>`, actions: [{ label: esc(t('Close')), primary: true }] });
+  const key = (CUR.view && CUR.view.nav) || Object.keys(HELP[role])[0];
+  const tips = HELP[role][key] || HELP[role][Object.keys(HELP[role])[0]];
+  const screen = (ROLE[role].nav().concat(ROLE[role].foot).find((n) => n[0] === key) || [])[3];
+  modal({ title: esc(t('Help')) + (screen ? ': ' + esc(t(screen)) : ''), body: `<ul class="tips">${tips.map((x) => `<li>${esc(t(x))}</li>`).join('')}</ul>`, actions: [{ label: esc(t('Close')), primary: true }] });
 }
+/* First visit of each role: a short "How GradeBuddy works" card on the home page, until it is dismissed */
+const INTRO = {
+  student: ['Take photos of your exam and upload them.', 'Your teacher checks the grade the AI suggests.', 'See your result, what went wrong and a game to practise.'],
+  teacher: ['Check the text the AI read from each scanned page.', 'Review the marks the AI suggests and change any you disagree with.', 'Publish. Students and parents see the result only then.'],
+  parent: ['Your child uploads photos of each exam.', 'The teacher checks every grade before it is published.', 'You see the grade, the feedback and how to help at home.'],
+};
+function introCard(role) {
+  S.intro = S.intro || {};
+  if (S.intro[role]) return '';
+  return `<section class="card intro" aria-labelledby="intro-t"><div class="row between top-start"><h2 id="intro-t">${esc(t('How GradeBuddy works'))}</h2><button type="button" class="icon-btn" data-intro-x aria-label="${esc(t('Close'))}">${icon('x', 18)}</button></div>
+    <ol class="intro-steps">${INTRO[role].map((x, i) => `<li><span class="num">${i + 1}</span><span>${esc(t(x))}</span></li>`).join('')}</ol>
+    <button type="button" class="btn sm" data-intro-ok>${esc(t('Got it'))}</button></section>`;
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-intro-x],[data-intro-ok]')) return;
+  S.intro = S.intro || {}; S.intro[CUR.role] = true; save(); refresh();
+});
 function bar(pct, cls = '') { return `<span class="bar ${cls}" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.max(0, Math.min(100, pct))}%"></span></span>`; }
 function starsFor(pct) {
-  const n = Math.floor(pct / 20);
+  const n = Math.round(pct / 20);   // same rule everywhere: stars = round(score / 20)
   return `<span class="stars" aria-label="${n} ${t('of 5 stars')}">${[0, 1, 2, 3, 4].map((i) => `<span class="${i < n ? 'on' : ''}">${icon('star', 18)}</span>`).join('')}</span>`;
 }
 function change(n) {
@@ -273,11 +342,23 @@ function change(n) {
 }
 
 let toastTimer;
-function toast(msg) {
+/* toast(html) or toast(html, { action: { label, fn }, ms }). With an action it stays 10 seconds. */
+function toast(msg, o = {}) {
   let el = $('#toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
-  el.innerHTML = msg; el.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+  el.innerHTML = `<span>${msg}</span>${o.action ? `<button type="button" class="toast-act">${esc(o.action.label)}</button>` : ''}`;
+  if (o.action) $('.toast-act', el).addEventListener('click', () => { el.classList.remove('show'); clearTimeout(toastTimer); o.action.fn(); });
+  el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), o.ms || (o.action ? 10000 : 2800));
+}
+/* 3.9 form errors next to the field, in the status colour, with an icon */
+function fieldError(input, msg) {
+  const f = input.closest('.field') || input.parentElement;
+  let e = f.querySelector('.field-err');
+  if (!msg) { if (e) e.remove(); input.removeAttribute('aria-invalid'); return; }
+  if (!e) { e = document.createElement('span'); e.className = 'field-err'; e.id = 'err-' + Math.random().toString(36).slice(2); f.appendChild(e); }
+  e.innerHTML = icon('warn', 16) + ' ' + esc(msg);
+  input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', e.id); input.focus();
 }
 
 function modal({ title, body, actions = [], wide, onMount }) {

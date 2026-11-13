@@ -84,12 +84,12 @@ function verifyPages(name, v) {
 }
 
 const SEED = {
-  v: 10,
+  v: 11,
   student: {
     id: 's1', name: 'Younis', full: 'Younis Hassan', short: 'Younis H.', grade: 'Grade 4', cls: '4B',
     email: 'younis@school.edu', points: 120,
     avatar: { face: 0, hair: 0, clothes: 0, hats: 0, background: 0 },
-    pointsLog: [{ pts: 5, text: 'Sent exam on time' }, { pts: 10, text: 'Finished Fraction Pizza' }],
+    pointsLog: [{ pts: 5, text: 'Uploaded exam on time' }, { pts: 10, text: 'Finished Fraction Pizza' }],
   },
   subjects: [
     { id: 'math', name: 'Math', teacher: 'Ms. Mona', icon: 'calc' },
@@ -180,10 +180,10 @@ const SEED = {
     },
   },
   history: {
-    math: [{ label: 'Addition', date: 'Sep 1', v: 63 }, { label: 'Shapes', date: 'Sep 8', v: 64 }, { label: 'Multiply', date: 'Sep 15', v: 85 }, { label: 'Unit 1', date: 'Sep 22', v: 70 }],
-    english: [{ label: 'Spelling', date: 'Sep 5', v: 78 }, { label: 'Reading 1', date: 'Sep 12', v: 85 }, { label: 'Reading', date: 'Sep 26', v: 88 }],
-    deutsch: [{ label: 'Wörter 1', date: 'Sep 4', v: 70 }, { label: 'Diktat 2', date: 'Sep 12', v: 70 }, { label: 'Wörter', date: 'Sep 23', v: 64 }],
-    science: [{ label: 'Living things', date: 'Sep 8', v: 72 }, { label: 'Quiz 1', date: 'Sep 19', v: 80 }],
+    math: [{ label: 'Addition', date: '1 Sep', v: 63 }, { label: 'Shapes', date: '8 Sep', v: 64 }, { label: 'Multiply', date: '15 Sep', v: 85 }, { label: 'Unit 1', date: '22 Sep', v: 70 }],
+    english: [{ label: 'Spelling', date: '5 Sep', v: 78 }, { label: 'Reading 1', date: '12 Sep', v: 85 }, { label: 'Reading', date: '26 Sep', v: 88 }],
+    deutsch: [{ label: 'Wörter 1', date: '4 Sep', v: 70 }, { label: 'Diktat 2', date: '12 Sep', v: 70 }, { label: 'Wörter', date: '23 Sep', v: 64 }],
+    science: [{ label: 'Living things', date: '8 Sep', v: 72 }, { label: 'Quiz 1', date: '19 Sep', v: 80 }],
   },
   strengths: {
     math: ['Multiplication', 'Word problems', 'Halves'], english: ['Reading aloud', 'Finding the main idea'],
@@ -212,7 +212,7 @@ const SEED = {
   ],
   inbox: [
     { id: 'n2', kind: 'teacher', icon: 'target', html: '<b>Ms. Mona</b> sent you practice: <b>Comparing fractions</b>', sub: '“Try Fraction Pizza before Friday!”', short: 'New practice: Comparing fractions', time: '9:12', day: 'today', when: 'Today', unread: true, action: { label: 'Practise', href: '/student/play/fraction-pizza' } },
-    { id: 'n3', kind: 'reward', icon: 'star', html: 'You got <b>+5 points</b> for sending on time!', day: 'today', unread: true },
+    { id: 'n3', kind: 'reward', icon: 'star', html: 'You got <b>+5 points</b> for uploading on time!', day: 'today', unread: true },
     { id: 'n4', kind: 'teacher', icon: 'camera', html: '<b>Ms. Mona</b> needs a new photo of page 3 of your <b>Unit 2 Quiz</b>.', short: 'Unit 2 Quiz: please retake page 3', time: 'Wed', day: 'earlier', when: 'Wednesday', unread: false, action: { label: 'Take photo', href: '/student/exam/math-unit2' } },
     { id: 'n5', kind: 'teacher', icon: 'calendar', html: 'Science exam on <b>Thursday</b> · Ms. Nada', short: 'Science exam on Thursday', day: 'earlier', when: 'Tuesday', unread: false },
   ],
@@ -222,6 +222,7 @@ const SEED = {
     { name: 'Omar', pts: 110, avatar: { face: 2, hair: 0, clothes: 1, hats: 2, background: 0 } },
     { name: 'Sara', pts: 95, avatar: { face: 1, hair: 1, clothes: 0, hats: 0, background: 1 } },
   ],
+  intro: {},
   star: { name: 'Youssef', reason: 'Most practice this week', week: '6 Oct' },
 
   /* ---------------- Teacher ---------------- */
@@ -322,9 +323,9 @@ const SEED = {
         { id: 'a3', subject: 'deutsch', title: 'Buchstaben', status: 'graded', score: 76, checked: '25 Sep', change: -3, teacher: 'Frau Weber', feedback: 'Schöne Schrift!', improve: 'Capital letters' },
         { id: 'a4', subject: 'science', title: 'My body', status: 'upcoming', date: 'Wed 15 Oct', iso: '2025-10-15', days: 5, teacher: 'Ms. Laila', topics: 'body parts, the five senses', prep: ['Name the five senses at dinner', 'Draw and label a body together'] },
       ],
-      history: { math: [{ label: 'Counting', date: 'Sep 3', v: 82 }, { label: 'Number bonds', date: 'Sep 17', v: 86 }, { label: 'Adding to 20', date: 'Oct 2', v: 90 }],
-        english: [{ label: 'Letters', date: 'Sep 10', v: 80 }, { label: 'Phonics', date: 'Sep 29', v: 82 }],
-        deutsch: [{ label: 'Laute', date: 'Sep 11', v: 79 }, { label: 'Buchstaben', date: 'Sep 25', v: 76 }], science: [{ label: 'Seasons', date: 'Sep 20', v: 85 }] },
+      history: { math: [{ label: 'Counting', date: '3 Sep', v: 82 }, { label: 'Number bonds', date: '17 Sep', v: 86 }, { label: 'Adding to 20', date: '2 Oct', v: 90 }],
+        english: [{ label: 'Letters', date: '10 Sep', v: 80 }, { label: 'Phonics', date: '29 Sep', v: 82 }],
+        deutsch: [{ label: 'Laute', date: '11 Sep', v: 79 }, { label: 'Buchstaben', date: '25 Sep', v: 76 }], science: [{ label: 'Seasons', date: '20 Sep', v: 85 }] },
       strong: ['adding', 'story time'], needs: ['capital letters', 'tricky words'],
       mistakes: [{ times: 2, subject: 'deutsch', parentText: 'He starts nouns with a small letter in German.', help: ['In German every noun starts with a capital letter. Point out nouns on shop signs together.'] }],
     },

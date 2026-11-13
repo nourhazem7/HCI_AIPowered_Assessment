@@ -36,7 +36,7 @@ route('/parent/overview', 'parent', () => {
   const fb = S.parent.notes.filter((n) => n.child === c.id && n.type === 'Feedback')[0] || S.parent.notes.filter((n) => n.child === c.id)[0];
   return {
     title: 'Overview', nav: 'overview',
-    html: `${childTabs()}
+    html: `${introCard('parent')}${childTabs()}${pageHead(t('{n} at a glance', { n: c.name }), { desc: t('Grades, subjects and what to practise, checked by the teachers.') })}
       ${alerts.map((a) => `<section class="card flag-card row gap center wrap">${icon("flag", 20)}<span class="grow"><b>${esc(t(a.title))}</b><span class="block">${esc(t(a.text))}</span></span><a class="btn sm" href="#/parent/progress">${esc(t('See details'))}</a></section>`).join('')}
       <div class="grid-3">
         <section class="card"><h2>${icon('doc', 20)} ${esc(t('Recent grades'))}</h2>${done.slice(0, 3).map((e) => `<a class="row between center line plain" href="#/parent/exams/${e.id}"><span>${esc(t(subj(e.subject).name))} · ${esc(t(e.title))}</span><b>${e.score}% ${e.change > 0 ? icon('arrowUp', 14) : e.change < 0 ? icon('arrowDown', 14) : ''}</b></a>`).join('')}</section>
@@ -66,20 +66,20 @@ function parentExams() {
       <div class="row gap wrap"><button type="button" class="btn" data-cal>${icon('calendar', 16)} ${esc(t('Add to my calendar'))}</button><button type="button" class="btn ghost" data-ask>${icon('chat', 16)} ${esc(t('Ask the teacher'))}</button></div>`;
   } else if (sel) {
     const marks = d ? `${d.got} ${t('of')} ${d.total} ${t('marks')}` : '';
-    detail = `<div class="row between center"><h2>${esc(t(subj(sel.subject).name))} · ${esc(t(sel.title))}</h2><span class="chip dark">${icon('check', 14)} ${esc(t('Teacher confirmed'))}</span></div>
-      <div class="row gap center"><span class="big">${sel.score}%</span><span><span class="block">${esc(marks)}</span><span class="muted small">${sel.change ? (sel.change > 0 ? icon('arrowUp', 13) : icon('arrowDown', 13)) + ' ' + esc(t('{n}% from last {s} test', { n: Math.abs(sel.change), s: t(subj(sel.subject).name) })) : ''}</span></span></div>
+    detail = `<div class="row between center"><h2>${esc(t(subj(sel.subject).name))} · ${esc(t(sel.title))}</h2><span class="chip good">${icon('check', 14)} ${esc(t('Teacher confirmed'))}</span></div>
+      <div class="row gap center"><span class="big">${sel.score}%</span>${starsFor(sel.score)}<span><span class="block">${esc(marks)}</span><span class="muted small">${sel.change ? (sel.change > 0 ? icon('arrowUp', 13) : icon('arrowDown', 13)) + ' ' + esc(t('{n}% from last {s} test', { n: Math.abs(sel.change), s: t(subj(sel.subject).name) })) : ''}</span></span></div>
       <div class="card sub"><h3>${esc(t('Teacher feedback'))}</h3><p>${esc(t(d ? d.teacherSays : sel.feedback))}</p></div>
       <div class="card sub"><h3>${esc(t('Areas to improve'))}</h3><p>${esc(t(d ? d.improveParent : sel.improve))}</p></div>`;
   }
   const nxt = up[0];
   return {
     title: 'Exams', nav: 'exams',
-    html: `${childTabs()}<div class="row between wrap head-row"><h1 class="page inline">${esc(t('{n}’s exams', { n: c.name }))}</h1><div class="tabs pill-tabs">${[['upcoming', `${t('Upcoming')} (${up.length})`], ['completed', t('Completed')]].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${PX.tab === k}">${esc(l)}</button>`).join('')}</div></div>
+    html: `${childTabs()}${crumbNav([['/parent/overview', t('Overview')], [null, t('Exams')]])}<div class="row between wrap head-row"><div><h1 class="page inline">${esc(t('{n}’s exams', { n: c.name }))}</h1><p class="page-desc">${esc(t('Upcoming exams, and grades the teacher has published.'))}</p></div><div class="tabs pill-tabs">${[['upcoming', `${t('Upcoming')} (${up.length})`], ['completed', t('Completed')]].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${PX.tab === k}">${esc(l)}</button>`).join('')}</div></div>
       <div class="cols-1-1 start">
-        <section class="card list-card">${list.map((e) => `<button type="button" class="ex-row ${sel && sel.id === e.id ? 'cur' : ''}" data-sel="${e.id}">${subjIcon(e.subject)}<span class="grow"><b>${esc(t(subj(e.subject).name))} · ${esc(t(e.title))}</b><span class="block small muted">${esc(td(PX.tab === 'upcoming' ? e.date : e.checked))}</span></span>${PX.tab === 'upcoming' ? `<span class="chip">${esc(t('in {n} days', { n: e.days }))}</span>` : `<b>${e.score}%</b>`}</button>`).join('') || `<p class="muted pad">${esc(t('Nothing here yet.'))}</p>`}</section>
+        <section class="card list-card">${list.map((e) => `<button type="button" class="ex-row ${sel && sel.id === e.id ? 'cur' : ''}" data-sel="${e.id}">${subjIcon(e.subject)}<span class="grow"><b>${esc(t(subj(e.subject).name))} · ${esc(t(e.title))}</b><span class="block small muted">${esc(td(PX.tab === 'upcoming' ? e.date : e.checked))}</span></span>${PX.tab === 'upcoming' ? `<span class="chip">${icon('calendar', 14)}${esc(t('in {n} days', { n: e.days }))}</span>` : `<span class="row gap center">${starsFor(e.score)}<b>${e.score}%</b></span>`}</button>`).join('') || `<div class="pad empty"><p class="muted">${esc(t(PX.tab === 'upcoming' ? 'No upcoming exams.' : 'No grades yet. They appear here once the teacher publishes them.'))}</p><button type="button" class="btn" data-tab="${PX.tab === 'upcoming' ? 'completed' : 'upcoming'}">${esc(t(PX.tab === 'upcoming' ? 'See completed exams' : 'See upcoming exams'))}</button></div>`}</section>
         <section class="card detail">${detail || `<p class="muted">${esc(t('Pick an exam to see details.'))}</p>`}</section>
       </div>
-      ${PX.tab === 'completed' && nxt ? `<section class="card dashed row gap center wrap">${icon('calendar', 18)}<span class="grow"><b>${esc(t('Next:'))}</b> ${esc(t(subj(nxt.subject).name))} ${esc(t('exam'))} · ${esc(td(nxt.date))} · ${esc(t('Topics:'))} ${esc(t(nxt.topics))}</span><button type="button" class="btn ghost sm" data-cal="${nxt.id}">${esc(t('Add to calendar'))}</button></section>` : ''}`,
+      ${PX.tab === 'completed' && nxt ? `<section class="card row gap center wrap">${icon('calendar', 18)}<span class="grow"><b>${esc(t('Next:'))}</b> ${esc(t(subj(nxt.subject).name))} ${esc(t('exam'))} · ${esc(td(nxt.date))} · ${esc(t('Topics:'))} ${esc(t(nxt.topics))}</span><button type="button" class="btn ghost sm" data-cal="${nxt.id}">${esc(t('Add to calendar'))}</button></section>` : ''}`,
     mount(el) {
       bindChild(el);
       $$('[data-tab]', el).forEach((b) => b.addEventListener('click', () => { PX.tab = b.dataset.tab; PX.sel = null; if (location.hash !== '#/parent/exams') go('/parent/exams'); else refresh(); }));
@@ -106,14 +106,14 @@ route('/parent/progress', 'parent', () => {
   const good = c.id === 's1' ? (all ? Object.values(S.strengths).flat() : S.strengths[PPF]) : c.strong;
   return {
     title: 'Progress', nav: 'progress',
-    html: `${childTabs()}<div class="row between wrap head-row"><h1 class="page inline">${esc(t('{n}’s progress', { n: c.name }))}</h1>${chips(SUBJECT_FILTER(), PPF)}</div>
+    html: `${childTabs()}${crumbNav([['/parent/overview', t('Overview')], [null, t('Progress')]])}<div class="row between wrap head-row"><div><h1 class="page inline">${esc(t('{n}’s progress', { n: c.name }))}</h1><p class="page-desc">${esc(t('How the scores change over the term, and how you can help at home.'))}</p></div>${chips(SUBJECT_FILTER(), PPF)}</div>
       <div class="cols-3-2">
         <section class="card"><h2>${icon('trend', 20)} ${esc(all ? t('All subjects over the term') : t('{s} over the term', { s: t(subj(PPF).name) }))}</h2>${h.length ? lineChart(h, { xKey: 'date', noLine: all, label: t('Scores over the term') }) : `<p class="muted">${esc(t('No exams yet.'))}</p>`}
           ${all ? `<div class="legend">${S.subjects.map((s) => `<span><i style="background:${SUBJ_COLORS[s.id]}"></i>${esc(t(s.name))}</span>`).join('')}</div>` : ''}
           ${h.length > 1 ? `<p>${diff >= 0 ? esc(t('Getting better overall:')) : esc(t('A little lower overall:'))} <b>${diff >= 0 ? '+' : ''}${diff}%</b> ${esc(t('since September.'))}</p>` : ''}</section>
         <div class="stack">
           <section class="card"><h3>${esc(t('Doing well in'))}</h3><p>${(good || []).map((x) => esc(t(x))).join(' · ') || '–'}</p></section>
-          <section class="card dashed"><h3>${esc(t('Needs practice'))}</h3><p>${(needs || []).map((x) => esc(t(x))).join(', ') || '–'}</p>${gapConfirmed && (all || PPF === 'math') ? `<p class="small">${icon('check', 13)} ${esc(t('Confirmed by {tc}', { tc: 'Ms. Mona' }))}</p>` : ''}</section>
+          <section class="card note"><h3>${esc(t('Needs practice'))}</h3><p>${(needs || []).map((x) => esc(t(x))).join(', ') || '–'}</p>${gapConfirmed && (all || PPF === 'math') ? `<p class="small">${icon('check', 13)} ${esc(t('Confirmed by {tc}', { tc: 'Ms. Mona' }))}</p>` : ''}</section>
         </div>
       </div>
       <section class="card"><h2>${icon('refresh', 18)} ${esc(t('Mistakes that keep coming back'))}</h2>${mist.map((m, i) => `<div class="row between center line"><span><b>${m.times}×</b> ${esc(t(m.parentText))}</span><button type="button" class="btn sm" data-help="${i}">${esc(t('How can I help?'))}</button></div>`).join('') || `<p class="muted">${esc(t('No repeated mistakes in this subject.'))}</p>`}</section>`,
@@ -138,8 +138,8 @@ route('/parent/notes', 'parent', () => {
   const posts = S.teacher.posts.filter((p) => p.audience !== 'Only students');
   return {
     title: 'Notes & posts', nav: 'notes',
-    html: `${childTabs()}<div class="cols-3-2 start">
-      <div><div class="row between wrap head-row"><h1 class="page inline">${esc(t('Teacher notes'))}</h1>${chips([['all', 'All subjects'], ...subs.map((s) => [s, subj(s).name])], PN.f)}</div>
+    html: `${childTabs()}${crumbNav([['/parent/overview', t('Overview')], [null, t('Notes & posts')]])}<div class="cols-3-2 start">
+      <div><div class="row between wrap head-row"><div><h1 class="page inline">${esc(t('Teacher notes'))}</h1><p class="page-desc">${esc(t('Notes about your child, and news from the class.'))}</p></div>${chips([['all', 'All subjects'], ...subs.map((s) => [s, subj(s).name])], PN.f)}</div>
         ${shown.map((n) => `<section class="card ${n.type === 'Feedback' ? '' : 'soft'}"><div class="row between top-start"><div class="row gap center">${initials(tIni(n.teacher))}<div><b>${esc(n.teacher)} · ${esc(t(subj(n.subject).name))}</b><span class="block small muted">${esc(td(n.date))}${n.exam ? ' · ' + esc(n.exam) : ''}</span></div></div><span class="chip">${esc(t(n.type))}</span></div>
           <p>“${esc(t(n.text))}”</p>${n.improve ? `<p><b>${esc(t('Area to improve:'))}</b> ${esc(t(n.improve))}</p>` : ''}
           ${n.replies.map((r) => `<p class="reply">${icon('arrowR', 13)} <b>${esc(t('You'))}:</b> ${esc(r)}</p>`).join('')}${n.meeting ? `<p class="small">${icon('calendar', 13)} ${esc(t('Meeting requested:'))} ${esc(td(n.meeting))}</p>` : ''}
