@@ -1,0 +1,10 @@
+{
+  "name": "gradebuddy",
+  "version": "1.0.0",
+  "description": "GradeBuddy: AI-assisted exam grading with the teacher in the loop (CSEN 909 prototype). Static site in public/, no dependencies.",
+  "scripts": {
+    "start": "npx serve public -l 3000"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
