@@ -1,46 +1,43 @@
-# GradeBuddy (CSEN 909 prototype)
+# GradeBuddy
 
-Front-end prototype of the GradeBuddy wireframes: OCR + AI-assisted grading with the teacher in the loop,
-explainable results for students, and a parent view.
+A front-end prototype of an AI-assisted grading app for Grades 1–5 (CSEN 909, Milestone 3).
+A teacher checks the scanned text and the AI's marks before anything reaches the student. Students get results they can understand, and parents can follow progress.
 
-It is a static website in `public/`: plain HTML, CSS and JavaScript with no dependencies and no backend.
-All data is demo data stored in the browser (`localStorage`), and the "AI" steps (OCR, grading, red flags) are simulated.
+## Run it
 
-## Live demo
-Live demo: **[link coming soon](https://example.github.io/gradebuddy/)** (GitHub Pages)
+No install and no backend. Use either option:
 
-## Run locally
-Pick one:
-- **No install:** open `public/index.html` in Chrome, Edge or Firefox.
-- **Local server:** `npx serve public` (or `npm start`, which runs `npx serve public -l 3000`), then open http://localhost:3000
+1. Open `public/index.html` in a browser, or
+2. Run `npx serve public` and open the address it prints.
 
-Sign in as a **student** (Younis), **teacher** (Ms. Mona) or **parent** (Ms. Marwa). Any password works.
+## Sign in
 
-**Reset demo data** (student: Help & settings; teacher and parent: Settings) clears everything GradeBuddy saved in the browser
-(progress, messages, points, language, sign-in) and reloads the app from a clean start.
+Choose **Student**, **Teacher** or **Parent** on the first screen. The demo account details are already filled in, so just press **Sign in**. Any password works.
 
-## Publish on GitHub Pages
-All paths are relative, so the app works from a sub-path such as `https://<user>.github.io/<repo>/`.
-In the repository settings choose Pages → "Deploy from a branch" and serve the `public/` folder
-(or copy its contents to a `docs/` folder or a `gh-pages` branch).
+The app is available in English and German (EN | DE, top right).
 
-## Structure
-- `public/index.html`: the single page, with hash routing (`#/student/home`, `#/teacher/dashboard`, `#/parent/overview`, …)
-- `public/css/app.css`: all styles
-- `public/js/data.js`: demo data (exams, OCR text, AI grades, flags, messages)
-- `public/js/core.js`: state, router, app shell (top bar, sidebar, bell, language), charts, avatar, modals
-- `public/js/auth.js`: sign-in screens and settings
-- `public/js/student.js`: student screens and the Buddy helper panel
-- `public/js/games.js`: the five practice games
-- `public/js/teacher.js`: teacher screens (verify OCR, review AI grades, flags, class view, messages, posts)
-- `public/js/parent.js`: parent screens
-- `public/js/i18n.js`: German text (EN | DE switch)
+## Demo walkthrough
 
-## Demo order
-One exam, Younis's Math **Fractions Test**, goes through the whole flow. Start from a clean state ("Reset demo data").
-1. **Student (Younis):** Home shows the Fractions Test as "Needs upload". Upload my exam → Fractions Test → add 4 pages (the 3rd comes out blurry, take it again) → tick the check box → Send to teacher (+5 points). Home now shows it as "Teacher checking".
-2. **Teacher (Ms. Mona):** To verify → Younis H. · Math · Fractions Test → fix the unclear words → confirm each page → Send to AI grading. After a few seconds the paper moves to To review, and a red flag for fractions appears.
-   (Optional: "Ask for a new photo" on the verify screen sends a page back to Younis. He retakes it on his exam page and the paper returns to To verify.)
-3. **Teacher:** To review → Younis H. → accept or change each AI score → confirm the red flag → Publish to student.
-4. **Student:** My Results shows the new Fractions Test grade with a message from Ms. Mona; My Progress has a new Math point.
-5. **Parent (Ms. Marwa):** Overview, Exams → Completed and Progress show the same grade, plus the teacher's feedback and the red-flag alert.
+One exam goes through the whole flow:
+
+1. **Student (Younis)** uploads the Math Fractions Test.
+2. **Teacher (Ms. Mona)** opens **To verify** and checks the text read from the scan.
+3. The AI grades the paper. It then appears in **To review**.
+4. **Teacher** reviews the marks, confirms the learning gap and red flag, and publishes.
+5. **Student** sees the grade, why marks were lost and what to practise. **Parent** sees the result and the teacher's feedback.
+
+To start again from a clean state, use **Reset demo** in Help & settings.
+
+## Good to know
+
+- Plain HTML, CSS and JavaScript. No dependencies.
+- OCR, AI grading and red flags are simulated with demo data.
+
+## Project structure
+
+```
+public/
+  index.html   the single page (hash routes)
+  css/         styles
+  js/          data, core, sign-in, student, games, teacher, parent, EN/DE text
+```
